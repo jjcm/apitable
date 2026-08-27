@@ -15,14 +15,14 @@
   ],
   "license": "Unlicense",
   "main": "./dist/index.js",
-  "type": "commonjs",
-  "exports": {
-    ".": "./dist/index.js"
-  },
-
+  "module": "./dist/esm/index.js",
+  "sideEffects": [
+    "./dist/http/isomorphic-fetch.js",
+    "./dist/esm/http/isomorphic-fetch.js"
+  ],
   "typings": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && tsc -p tsconfig.esm.json"
   },
   "dependencies": {
     "whatwg-fetch": "^3.6.*",

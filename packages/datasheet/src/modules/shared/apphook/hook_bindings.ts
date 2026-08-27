@@ -17,7 +17,6 @@
  */
 
 import * as Sentry from '@sentry/nextjs';
-import posthog from 'posthog-js';
 import {
   Events,
   generateFixInnerConsistencyChangesets,
@@ -87,7 +86,9 @@ const fixLinkConsistency = (error: ILinkConsistencyError, state: IReduxState) =>
 // Set user ID, logged in
 Player.bindTrigger(Events.app_set_user_id, (args: IUserInfo) => {
   if (typeof window['posthog'] !== 'undefined') {
-    posthog.identify(args.uuid);
+    // The analytics client is loaded lazily (see pc/common/posthog_provider);
+    // it publishes itself on window once initialized.
+    (window['posthog'] as any).identify(args.uuid);
   }
 
   Sentry.setUser({
