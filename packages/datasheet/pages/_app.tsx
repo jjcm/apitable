@@ -200,11 +200,17 @@ function MyAppMain({ Component, pageProps, envVars }: AppProps & { envVars: stri
       const pathUrl = window.location.pathname;
       const query = new URLSearchParams(window.location.search);
       const spaceId = query.get('spaceId') || getRegResult(pathUrl, spaceIdReg) || '';
-      const res = await axios.get('/client/info', {
-        params: {
-          spaceId,
-        },
-      });
+      // Boot-critical client info is inlined into the document by the server;
+      // fall back to the round trip only when it is missing or when a space
+      // switch (spaceId) must happen on the backend.
+      const inlineClientInfo = !spaceId ? window.__initialization_data__?.clientInfo : null;
+      const res = inlineClientInfo
+        ? { data: inlineClientInfo }
+        : await axios.get('/client/info', {
+          params: {
+            spaceId,
+          },
+        });
       // console.log(res);
       let userInfo: IUserInfo | undefined;
       try {
