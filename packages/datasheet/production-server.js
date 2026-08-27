@@ -41,6 +41,9 @@ if (!process.env.NEXT_MANUAL_SIG_HANDLE) {
 
 const STATIC_ROOT = path.join(__dirname, 'web_build', 'static');
 const STATIC_PREFIX = '/_next/static/';
+const PUBLIC_ROOT = path.join(__dirname, 'public');
+// Heavy public runtime assets that get precompressed siblings at build time.
+const PUBLIC_PREFIXES = ['/custom/', '/file/'];
 const CONTENT_TYPES = {
   '.js': 'application/javascript; charset=UTF-8',
   '.css': 'text/css; charset=UTF-8',
@@ -65,10 +68,21 @@ const CONTENT_TYPES = {
 function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
   const url = req.url.split('?')[0];
-  if (!url.startsWith(STATIC_PREFIX)) return false;
-  const rel = decodeURIComponent(url.slice(STATIC_PREFIX.length));
-  const file = path.normalize(path.join(STATIC_ROOT, rel));
-  if (!file.startsWith(STATIC_ROOT + path.sep)) return false;
+  let root = null;
+  let rel = null;
+  let immutable = false;
+  if (url.startsWith(STATIC_PREFIX)) {
+    root = STATIC_ROOT;
+    rel = url.slice(STATIC_PREFIX.length);
+    immutable = true;
+  } else if (PUBLIC_PREFIXES.some((p) => url.startsWith(p))) {
+    root = PUBLIC_ROOT;
+    rel = url.slice(1);
+  } else {
+    return false;
+  }
+  const file = path.normalize(path.join(root, decodeURIComponent(rel)));
+  if (!file.startsWith(root + path.sep)) return false;
 
   let stat;
   try {
@@ -100,7 +114,7 @@ function serveStatic(req, res) {
 
   const etag = `W/"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}${encoding ? '-' + encoding : ''}"`;
   res.setHeader('Vary', 'Accept-Encoding');
-  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.setHeader('Cache-Control', immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=0, must-revalidate');
   res.setHeader('ETag', etag);
   if (req.headers['if-none-match'] === etag) {
     res.statusCode = 304;

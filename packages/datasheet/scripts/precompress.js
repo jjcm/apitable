@@ -30,7 +30,14 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-const ROOT = path.join(__dirname, '..', 'web_build', 'static');
+const ROOTS = [
+  path.join(__dirname, '..', 'web_build', 'static'),
+  // Heavy runtime assets served from the public folder (language packs,
+  // edition config script). Not content-hashed, but baked at build time all
+  // the same, so compressing them once still beats per-request gzip.
+  path.join(__dirname, '..', 'public', 'file', 'langs'),
+  path.join(__dirname, '..', 'public', 'custom'),
+];
 const COMPRESSIBLE = new Set(['.js', '.css', '.svg', '.json', '.txt', '.map', '.html', '.wasm']);
 const MIN_SIZE = 1024;
 
@@ -43,17 +50,22 @@ function* walk(dir) {
 }
 
 function main() {
-  if (!fs.existsSync(ROOT)) {
-    console.error(`precompress: ${ROOT} does not exist, run next build first`);
+  if (!fs.existsSync(ROOTS[0])) {
+    console.error(`precompress: ${ROOTS[0]} does not exist, run next build first`);
     process.exit(1);
   }
   let files = 0;
   let rawTotal = 0;
   let brTotal = 0;
   const started = Date.now();
-  for (const file of walk(ROOT)) {
+  const all = [];
+  for (const root of ROOTS) {
+    if (fs.existsSync(root)) all.push(...walk(root));
+  }
+  for (const file of all) {
     const ext = path.extname(file);
     if (!COMPRESSIBLE.has(ext)) continue;
+    if (file.endsWith('.br') || file.endsWith('.gz')) continue;
     const raw = fs.readFileSync(file);
     if (raw.length < MIN_SIZE) continue;
     const br = zlib.brotliCompressSync(raw, {
