@@ -33,8 +33,6 @@ import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Script from 'next/script';
-import posthog from 'posthog-js';
-import { PostHogProvider } from 'posthog-js/react';
 import React, { useEffect, useState } from 'react';
 import { Provider } from 'react-redux';
 import { batchActions } from 'redux-batched-actions';
@@ -57,6 +55,7 @@ import { getBrowserDatabusApiEnabled } from '@apitable/core/dist/modules/databas
 import 'antd/es/date-picker/style/index';
 import 'normalize.css';
 import { initializer } from 'pc/common/initializer';
+import { AnalyticsProvider, initAnalytics } from 'pc/common/posthog_provider';
 import { Modal } from 'pc/components/common/modal/modal/modal';
 import { Router } from 'pc/components/route_manager/router';
 import { initEventListen } from 'pc/events/init_events_listener';
@@ -200,11 +199,17 @@ function MyAppMain({ Component, pageProps, envVars }: AppProps & { envVars: stri
       const pathUrl = window.location.pathname;
       const query = new URLSearchParams(window.location.search);
       const spaceId = query.get('spaceId') || getRegResult(pathUrl, spaceIdReg) || '';
-      const res = await axios.get('/client/info', {
-        params: {
-          spaceId,
-        },
-      });
+      // Boot-critical client info is inlined into the document by the server;
+      // fall back to the round trip only when it is missing or when a space
+      // switch (spaceId) must happen on the backend.
+      const inlineClientInfo = !spaceId ? window.__initialization_data__?.clientInfo : null;
+      const res = inlineClientInfo
+        ? { data: inlineClientInfo }
+        : await axios.get('/client/info', {
+          params: {
+            spaceId,
+          },
+        });
       // console.log(res);
       let userInfo: IUserInfo | undefined;
       try {
@@ -500,7 +505,7 @@ function MyAppMain({ Component, pageProps, envVars }: AppProps & { envVars: stri
           <div className={'__next_main'}>
             {!userLoading && (
               <div style={{ opacity: loading !== LoadingStatus.Complete ? 0 : 1 }} onScroll={onScroll}>
-                <PostHogProvider client={posthog}>
+                <AnalyticsProvider>
                   <Provider store={store}>
                     <RouterProvider>
                       <ThemeWrapper>
@@ -508,7 +513,7 @@ function MyAppMain({ Component, pageProps, envVars }: AppProps & { envVars: stri
                       </ThemeWrapper>
                     </RouterProvider>
                   </Provider>
-                </PostHogProvider>
+                </AnalyticsProvider>
               </div>
             )}
             {
@@ -555,15 +560,6 @@ const beforeCapture = (scope: Scope) => {
 
 if (!process.env.SSR && getEnvVariables().NEXT_PUBLIC_POSTHOG_KEY) {
   window.onload = () => {
-    posthog.init(getEnvVariables().NEXT_PUBLIC_POSTHOG_KEY!, {
-      api_host: getEnvVariables().NEXT_PUBLIC_POSTHOG_HOST,
-      autocapture: false,
-      capture_pageview: false,
-      capture_pageleave: false,
-      // Disable in development
-      loaded: (posthog) => {
-        if (process.env.NODE_ENV === 'development') posthog.opt_out_capturing();
-      },
-    });
+    initAnalytics();
   };
 }

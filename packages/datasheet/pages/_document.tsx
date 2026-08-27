@@ -28,12 +28,13 @@ interface IClientInfo {
   version: string;
   envVars: string;
   locale: string;
+  clientInfo?: object | null;
 }
 
 class MyDocument extends Document<IClientInfo> {
   static override async getInitialProps(ctx: DocumentContext) {
     const initialProps = await Document.getInitialProps(ctx);
-    const initData = getInitialProps({ ctx }) as any;
+    const initData = (await getInitialProps({ ctx })) as any;
     return {
       ...initialProps,
       ...initData,
@@ -41,7 +42,7 @@ class MyDocument extends Document<IClientInfo> {
   }
 
   override render() {
-    const { env, version, envVars, locale } = this.props;
+    const { env, version, envVars, locale, clientInfo } = this.props;
     return (
       <Html>
         <Head>
@@ -81,6 +82,7 @@ class MyDocument extends Document<IClientInfo> {
                 locale:'${locale}',
                 userInfo: null,
                 wizards: null,
+                clientInfo: ${clientInfo ? JSON.stringify(clientInfo).replace(/</g, '\\u003c') : 'null'},
               };
             `}
             </Script>

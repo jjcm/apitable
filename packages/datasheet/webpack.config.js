@@ -59,6 +59,10 @@ const compatibleIE11 = async (config) => {
 const setResolveAlias = (config, options) => {
   config.resolve.alias.react = path.resolve(__dirname, '../../', 'node_modules', 'react');
   config.resolve.alias['react-dom'] = path.resolve(__dirname, '../../', 'node_modules', 'react-dom');
+  // The default moment-timezone entry bundles the full IANA history (1900-2038,
+  // ~780KB parsed). The 1970-2030 build keeps every zone with accurate rules
+  // for the range real user data lives in, at a fraction of the size.
+  config.resolve.alias['moment-timezone$'] = 'moment-timezone/builds/moment-timezone-with-data-1970-2030';
   config.resolve.alias = {
     ...config.resolve.alias,
     api: path.resolve(__dirname, './src/modules/api'),

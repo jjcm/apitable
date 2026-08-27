@@ -16,9 +16,31 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import axios from 'axios';
 import { getEnvVars } from 'get_env';
 import { NextPageContext } from 'next';
 import { FILTER_HEADERS } from './constant';
+
+/**
+ * Fetch the boot-critical client info on the server so it can be inlined into
+ * the document. The client then renders without waiting for its own round
+ * trip. Failures fall back to the client-side request, so a slow or down
+ * backend never blocks the document render for long.
+ */
+const fetchClientInfo = async (context: { ctx: NextPageContext }): Promise<object | null> => {
+  const req = context.ctx.req;
+  if (!req) return null;
+  const host = process.env.API_PROXY || `http://${req.headers.host}`;
+  const headers: Record<string, string> = {};
+  if (req.headers.cookie) headers.cookie = req.headers.cookie;
+  if (req.headers['accept-language']) headers['accept-language'] = String(req.headers['accept-language']);
+  try {
+    const res = await axios.get(`${host}/api/v1/client/info`, { headers, timeout: 1000 });
+    return res.data && typeof res.data === 'object' ? res.data : null;
+  } catch (e) {
+    return null;
+  }
+};
 
 const LANG_MAP = {
   en_US: 'en-US',
@@ -46,10 +68,11 @@ const filterCustomHeader = (headers?: Record<string, string | string[] | undefin
   return _headers;
 };
 
-export const getInitialProps = (context: { ctx: NextPageContext }) => {
+export const getInitialProps = async (context: { ctx: NextPageContext }) => {
   const envVars = getEnvVars();
   const cookie = context.ctx.req?.headers.cookie;
   const filterHeaders = filterCustomHeader(context.ctx.req?.headers);
+  const clientInfo = await fetchClientInfo(context);
 
   const baseResponse = {
     env: process.env.ENV,
@@ -82,6 +105,7 @@ export const getInitialProps = (context: { ctx: NextPageContext }) => {
   return {
     ...baseResponse,
     locale: escapeHtml(locale),
+    clientInfo,
   };
 };
 
