@@ -75,6 +75,7 @@ COPY --from=builder /app/pnpm-workspace.yaml /app/package.json /app/pnpm-lock.ya
 COPY --from=builder /app/packages/datasheet/public ./packages/datasheet/public
 COPY --from=builder /app/packages/datasheet/next.config.js \
                     /app/packages/datasheet/package.json \
+                    /app/packages/datasheet/production-server.js \
                     ./packages/datasheet/
 
 # Automatically leverage output traces to reduce image size
@@ -90,4 +91,4 @@ EXPOSE 8080
 
 ENV PORT 8080
 
-CMD [ "node", "server.js" ]
+CMD [ "node", "production-server.js" ]
